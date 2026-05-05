@@ -2,6 +2,8 @@ package com.gov.grievance.grievance_portal.service;
 
 import com.gov.grievance.grievance_portal.dto.CitizenRegisterDTO;
 import com.gov.grievance.grievance_portal.entity.Citizen;
+import com.gov.grievance.grievance_portal.exception.BadRequestException;
+import com.gov.grievance.grievance_portal.exception.ResourceNotFoundException;
 import com.gov.grievance.grievance_portal.repository.CitizenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,7 +33,7 @@ public class CitizenService implements UserDetailsService{
     {
         if(citizenRepository.existsByEmail(dto.getEmail()))
         {
-            throw new RuntimeException("Email already in registered: "
+            throw new BadRequestException("Email already in registered: "
             + dto.getEmail());
         }
         Citizen citizen = Citizen.builder()
@@ -46,15 +48,17 @@ public class CitizenService implements UserDetailsService{
 
         return citizenRepository.save(citizen);
     }
-
-    public Optional<Citizen> findById(Long id)
+    public Citizen findById(long id)
     {
-        return citizenRepository.findById(id);
+        return citizenRepository.findById(id)
+                .orElseThrow(()-> new ResourceNotFoundException(
+                        "Citizen", "id", id));
     }
 
     public Citizen findByEmail(String email)
     {
         return citizenRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Citizen not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Citizen", "email", email));
     }
 }
