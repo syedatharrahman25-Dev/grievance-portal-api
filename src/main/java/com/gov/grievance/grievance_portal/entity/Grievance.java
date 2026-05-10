@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -50,8 +51,15 @@ public class Grievance {
     @JoinColumn(name = "citizen_id", nullable = false)
     private Citizen citizen;
 
-    @OneToMany(mappedBy = "grievance", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "grievance",
+            cascade = CascadeType.ALL)
     private List<GrievanceHistory> history;
+
+    @OneToMany(mappedBy = "grievance",
+    cascade = CascadeType.ALL,
+    fetch = FetchType.LAZY)
+    private List<GrievanceAttachment> attachments
+            = new ArrayList<>();
 
     @PrePersist
     protected void onCreate()

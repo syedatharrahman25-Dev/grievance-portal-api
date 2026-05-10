@@ -32,6 +32,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>>
     handleBadRequestException(
             BadRequestException ex){
+        ex.printStackTrace();
         ApiResponse<Object> response = ApiResponse.error(
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value()
