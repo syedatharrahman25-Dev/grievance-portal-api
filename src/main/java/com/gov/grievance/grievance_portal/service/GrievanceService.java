@@ -27,6 +27,7 @@ public class GrievanceService {
 
     private final GrievanceRepository grievanceRepository;
     private final CitizenRepository CitizenRepository;
+    private final EmailService emailService;
 
     @Transactional
     public GrievanceResponseDTO submit(GrievanceRequestDTO dto)
@@ -68,6 +69,18 @@ public class GrievanceService {
 
         //Step 5: Save to database
         Grievance saved = grievanceRepository.save(grievance);
+
+        try {
+            emailService.sendGrievanceSubmittedEmail(
+                    saved.getCitizen().getEmail(),
+                    saved.getCitizen().getFullName(),
+                    saved.getReferenceNumber(),
+                    saved.getTitle()
+            );
+        }catch (Exception e) {
+            System.err.println("Email notification failed: "+
+                     e.getMessage());
+        }
 
         //Step 6: Return response
         return mapToResponseDTO(saved);
@@ -118,8 +131,38 @@ public class GrievanceService {
                 .build();
 
         grievance.getHistory().add(history);
-        //Step 6: Save and return
-        return mapToResponseDTO(grievanceRepository.save(grievance));
+        //Step 6: Save and retire
+        //return mapToResponseDTO(grievanceRepository.save(grievance));
+
+        Grievance updated = grievanceRepository.save(grievance);
+
+        try{
+            if(newStatus == GrievanceStatus.RESOLVED){
+                emailService.sendGrievanceResolvedEmail(
+                        updated.getCitizen().getEmail(),
+                        updated.getCitizen().getFullName(),
+                        updated.getReferenceNumber(),
+                        updated.getTitle(),
+                        remarks
+                );
+            }else{
+                emailService.sendStatusUpdateEmail(
+                        updated.getCitizen().getEmail(),
+                        updated.getCitizen().getFullName(),
+                        updated.getReferenceNumber(),
+                        updated.getTitle(),
+                        oldStatus.name(),
+                        newStatus.name(),
+                        remarks,
+                        officerName
+                );
+            }
+        }catch (Exception e) {
+            System.err.println("Email notification failed: "+
+                    e.getMessage());
+        }
+        return mapToResponseDTO(updated);
+
     }
 
     public GrievanceResponseDTO trackByRefNumber(String refNumber)
