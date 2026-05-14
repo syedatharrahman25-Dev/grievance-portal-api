@@ -3,9 +3,11 @@ package com.gov.grievance.grievance_portal.service;
 
 import com.gov.grievance.grievance_portal.dto.GrievanceRequestDTO;
 import com.gov.grievance.grievance_portal.dto.GrievanceResponseDTO;
+import com.gov.grievance.grievance_portal.dto.PagedResponse;
 import com.gov.grievance.grievance_portal.entity.Citizen;
 import com.gov.grievance.grievance_portal.entity.Grievance;
 import com.gov.grievance.grievance_portal.entity.GrievanceHistory;
+import com.gov.grievance.grievance_portal.enums.GrievanceDepartment;
 import com.gov.grievance.grievance_portal.enums.GrievanceStatus;
 import com.gov.grievance.grievance_portal.exception.BadRequestException;
 import com.gov.grievance.grievance_portal.exception.ResourceNotFoundException;
@@ -13,6 +15,9 @@ import com.gov.grievance.grievance_portal.repository.CitizenRepository;
 import com.gov.grievance.grievance_portal.repository.GrievanceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -99,7 +104,7 @@ public class GrievanceService {
                 .findByReferenceNumber(refNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Grievance", "referenceNumber", refNumber));
-        if(grievance.getStatus()==GrievanceStatus.CLOSED){
+        if(grievance.getStatus() == GrievanceStatus.CLOSED){
             throw new BadRequestException(
                     "Cannot update a CLOSED grievance." +
                             "Reference: " + refNumber);
@@ -174,7 +179,8 @@ public class GrievanceService {
         return mapToResponseDTO(g);
     }
 
-    public List<GrievanceResponseDTO> getByCitizen(Long citizenId)
+    public List<GrievanceResponseDTO> getByCitizen(
+            Long citizenId)
     {
         if(!CitizenRepository.existsById(citizenId)){
             throw new ResourceNotFoundException(
@@ -202,13 +208,115 @@ public class GrievanceService {
                 .collect(Collectors.toList());
     }
 
+    // PAGINATE METHODS
+    public PagedResponse<GrievanceResponseDTO> getAllPaginated(
+            int page,
+            int size,
+            String sortBy,
+            String sortDir){
+        Sort.Direction direction =
+                sortDir.equalsIgnoreCase("desc")
+                ? Sort.Direction.DESC
+                        : Sort.Direction.ASC;
+
+        PageRequest pageRequest = PageRequest.of(
+                page,
+                size,
+                Sort.by(direction, sortBy));
+
+        Page<Grievance> grievancePage =
+                grievanceRepository
+                        .findAllByOrderBySubmittedAtDesc(pageRequest);
+
+        List<GrievanceResponseDTO> content =
+                grievancePage.getContent()
+                        .stream()
+                        .map(this::mapToResponseDTO)
+                        .collect(Collectors.toList());
+
+        return PagedResponse.of(
+                content,
+                grievancePage.getNumber(),
+                grievancePage.getSize(),
+                grievancePage.getTotalElements(),
+                grievancePage.getTotalPages()
+        );
+    }
+    public PagedResponse<GrievanceResponseDTO>
+    getByStatusPaginated(
+            GrievanceStatus status,
+            int page,
+            int size){
+        PageRequest pageRequest = PageRequest.of(
+                page, size,
+                Sort.by(
+                        Sort.Direction.DESC,
+                        "submittedAt"));
+
+        Page<Grievance> grievancePage =
+                grievanceRepository.findByStatus(
+                        status,
+                        pageRequest);
+        List<GrievanceResponseDTO> content =
+                grievancePage.getContent()
+                        .stream()
+                        .map(this::mapToResponseDTO)
+                        .collect(Collectors.toList());
+
+        return PagedResponse.of(
+                content,
+                grievancePage.getNumber(),
+                grievancePage.getSize(),
+                grievancePage.getTotalElements(),
+                grievancePage.getTotalPages()
+        );
+    }
+    public PagedResponse<GrievanceResponseDTO>
+    getByStatusAndDepartment(
+            GrievanceStatus status,
+            GrievanceDepartment department,
+            int page,
+            int size)
+    {
+        PageRequest pageRequest =  PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "submittedAt")
+        );
+
+        Page<Grievance> grievancePage =
+                grievanceRepository
+                        .findByStatusAndDepartment(
+                                status,
+                                department,
+                                pageRequest
+                        );
+        List<GrievanceResponseDTO> content =
+                grievancePage.getContent()
+                        .stream()
+                        .map(this::mapToResponseDTO)
+                        .collect(Collectors.toList());
+        return PagedResponse.of(
+                content,
+                grievancePage.getNumber(),
+                grievancePage.getSize(),
+                grievancePage.getTotalElements(),
+                grievancePage.getTotalPages()
+        );
+    }
+
     // Private Helpers ------------------------
 
     private String generateReferenceNumber()
     {
-        String year = String.valueOf(LocalDate.now().getYear());
-        String unique = String.valueOf(System.currentTimeMillis());
-        unique = unique.substring(unique.length() - 5);
+        String year = String.valueOf(
+                LocalDate.now().getYear());
+
+        String unique = String.valueOf(
+                System.currentTimeMillis());
+
+        unique = unique.substring(
+                unique.length() - 5);
         return "GRV-" + year + "-" + unique;
     }
 
